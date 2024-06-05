@@ -12,9 +12,7 @@ enum LerpFT {
     Cubic,
     SquareRoot,
     QuadraticEasyOut,
-    Parabola,
-    Triangle,
-    Exponencial
+    Parabola,    
 };
 
 
@@ -67,6 +65,15 @@ void bezier_animation_add_control_point(bezier_animation_t* animation, const Vec
     animation->control_points.pop_back();
     animation->control_points.push_back(point);
     animation->control_points.push_back(last);
+}
+
+
+void bezier_animation_add_control_point(
+    bezier_animation_t* animation,
+    const double step
+) {
+    Vector2 point = Vector2Lerp(animation->control_points[0], animation->control_points[animation->control_points.size()-1], step);
+    bezier_animation_add_control_point(animation, point);
 }
 
 
