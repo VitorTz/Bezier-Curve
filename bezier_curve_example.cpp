@@ -12,10 +12,6 @@
 #define NUM_CONTROL_POINTS 2.0
 #define STEP 1.0 / (NUM_CONTROL_POINTS + 1.0)
 
-void print_vec(Vector2 v) {
-    printf("Vec(%.2f, %.2f)\n", v.x, v.y);
-}
-
 
 typedef struct mouse {
     bool dragged = false;
@@ -23,33 +19,28 @@ typedef struct mouse {
 } mouse_t;
 
 
-void handle_mouse(bezier_animation_t* animation, mouse_t* mouse) {
+void handle_mouse(bz::bezier_animation_t* animation, mouse_t* mouse) {
     const Vector2 mouse_pos = GetMousePosition();
-    const bool right_mouse = IsMouseButtonReleased(MOUSE_RIGHT_BUTTON);
-    
-    int pos_to_insert_point = -1;
+    bool right_mouse = IsMouseButtonReleased(MOUSE_RIGHT_BUTTON);
+    bool space = IsKeyPressed(KEY_SPACE);
+
     for (int i = 0; i < animation->control_points.size(); i++) {
-        if (CheckCollisionPointCircle(mouse_pos, animation->control_points[i], CIRCLE_RADIUS)) {
+        const bool circle_collide = CheckCollisionPointCircle(mouse_pos, animation->control_points[i], CIRCLE_RADIUS);
+        const bool line_collide = CheckCollisionPointLine(
+            mouse_pos,
+            animation->control_points[i],
+            animation->control_points[i+1],
+            8
+        );
+        if (space && circle_collide) {
+            bz::remove_point(animation, i);
+        } else if (circle_collide) {
             mouse->last_circle_dragged = i;
+        }        
+        if (right_mouse && line_collide)  {            
+            right_mouse = false;
+            bz::insert_control_point(animation, mouse_pos, i);            
         }
-        if (
-            right_mouse &&
-            CheckCollisionPointLine(
-                mouse_pos,
-                animation->control_points[i],
-                animation->control_points[i+1],
-                8
-            )
-        )  {
-            pos_to_insert_point = i + 1;
-        }
-    }
-    
-    if (pos_to_insert_point != -1) {
-        animation->control_points.insert(
-            animation->control_points.begin() + pos_to_insert_point, 
-            mouse_pos
-        );        
     }
 
     if (IsMouseButtonReleased(MOUSE_LEFT_BUTTON)) {
@@ -70,65 +61,44 @@ void handle_mouse(bezier_animation_t* animation, mouse_t* mouse) {
 }
 
 
-void update_animation(bezier_animation_t* animation, const float dt) {
-    if (IsKeyPressed(KEY_SPACE)) {
-        animation->progress.time_count = 0.0;
-        animation->progress.reverse = false;
-    }
-    bezier_animation_update(animation, dt);
-}
-
-
-void draw_circles(bezier_animation_t* animation) {
+void draw_animation(bz::bezier_animation_t* animation) {
     const int n = animation->control_points.size();
     for (int i = 0; i < n; i++) {
         DrawCircleV(animation->control_points[i], CIRCLE_RADIUS, i == 0 || i == n - 1 ? RED : BROWN);
     }
-}
-
-
-void draw_lines(bezier_animation_t* animation) {
-    for (int i = 0; i < animation->control_points.size() - 1; i++) {
+    for (int i = 0; i < n - 1; i++) {
         DrawLineV(animation->control_points[i], animation->control_points[i+1], BROWN);
     }
-}
-
-
-bezier_animation_t* init_bezier() {
-    bezier_animation_t* animation = bezier_animation_create(
-        5.0,
-        {PADDING, PADDING},
-        {SCREEN_WIDTH - PADDING, SCREEN_HEIGHT - PADDING},
-        true,
-        LerpFT::Parabola
-    );
-    for (int i = 0; i < NUM_CONTROL_POINTS; i++) {
-        bezier_animation_add_control_point(animation, STEP*(i+1));
-    }    
-    return animation;
+    DrawCircleV(animation->C, CIRCLE_RADIUS, BLUE);
 }
 
 
 int main(int argc, char const *argv[]) {
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);    
-    bezier_animation_t* animation = init_bezier();
     mouse_t* mouse = new mouse_t{};
-
+    bz::bezier_animation_t* animation = bz::bezier_animation_create(
+        5.0,
+        {PADDING, PADDING},
+        {SCREEN_WIDTH - PADDING, SCREEN_HEIGHT - PADDING},
+        true,
+        bz::TBasicFunction::Parabola
+    );
+    for (int i = 0; i < NUM_CONTROL_POINTS; i++) {
+        bz::add_control_point_lerp(animation, STEP*(i+1));
+    }    
     while (!WindowShouldClose()) {
+        const float dt = GetFrameTime();
         BeginDrawing();
         ClearBackground(GetColor(0x181818ff));
             handle_mouse(animation, mouse);
-            update_animation(animation, GetFrameTime());
-
-            draw_lines(animation);
-            draw_circles(animation);
-            DrawCircleV(animation->C, CIRCLE_RADIUS, BLUE);
+            bz::animation_update(animation, dt);
+            draw_animation(animation);
         EndDrawing();
     }
     
-    bezier_animation_destroy(animation);
-    free(mouse);
+    bezier_animation_destroy(animation);    
+    delete mouse;
     CloseWindow();
     return 0;
 }
