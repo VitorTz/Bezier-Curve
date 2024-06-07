@@ -33,13 +33,13 @@ void handle_mouse(bz::bezier_animation_t* animation, mouse_t* mouse) {
             8
         );
         if (space && circle_collide) {
-            bz::remove_point(animation, i);
+            bz::remove_control_point(animation, i);
         } else if (circle_collide) {
             mouse->last_circle_dragged = i;
         }        
         if (right_mouse && line_collide)  {            
             right_mouse = false;
-            bz::insert_control_point(animation, mouse_pos, i);            
+            bz::insert_control_point(animation, mouse_pos, i+1);            
         }
     }
 
@@ -76,29 +76,28 @@ void draw_animation(bz::bezier_animation_t* animation) {
 int main(int argc, char const *argv[]) {
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, WINDOW_TITLE);    
-    mouse_t* mouse = new mouse_t{};
-    bz::bezier_animation_t* animation = bz::bezier_animation_create(
-        5.0,
+    mouse_t mouse{};
+    bz::bezier_animation_t animation = {
         {PADDING, PADDING},
         {SCREEN_WIDTH - PADDING, SCREEN_HEIGHT - PADDING},
-        true,
-        bz::TBasicFunction::Parabola
-    );
+    };
+    animation.time_to_complete = 5.0;
+    animation.loop = true;
+    
     for (int i = 0; i < NUM_CONTROL_POINTS; i++) {
-        bz::add_control_point_lerp(animation, STEP*(i+1));
+        bz::add_control_point_lerp(&animation, STEP*(i+1));
     }    
+    
     while (!WindowShouldClose()) {
         const float dt = GetFrameTime();
         BeginDrawing();
         ClearBackground(GetColor(0x181818ff));
-            handle_mouse(animation, mouse);
-            bz::animation_update(animation, dt);
-            draw_animation(animation);
+            handle_mouse(&animation, &mouse);
+            bz::animation_update(&animation, dt);
+            draw_animation(&animation);
         EndDrawing();
     }
-    
-    bezier_animation_destroy(animation);    
-    delete mouse;
+        
     CloseWindow();
     return 0;
 }
